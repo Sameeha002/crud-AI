@@ -1,0 +1,33 @@
+.get-products{
+    border: none;
+    background-color: #242424;
+    padding: .5rem;
+    border-radius: 10px;
+    box-shadow: 3px 3px 2px rgba(0,0,0,0.1);
+    margin-left: 1rem;
+}
+.new-chat{
+    border: none;
+    background-color: aqua;
+    color: rgb(70, 70, 70);
+    padding: .5rem;
+    border-radius: 10px;
+    box-shadow: 3px 3px 2px rgba(0,0,0,0.1);
+   
+}
+.get-prod-div{
+    background-color: #d2d2d2;
+    margin-top: 1rem;
+    padding: 10px;
+    box-shadow: 3px 3px 2px rgba(0,0,0,0.1);
+    border-radius: 10px;
+}
+.your-chats{
+    margin-top: 1rem;
+}
+.chat-title{
+    background-color: #d2d2d2;
+    border-radius: 10px;
+    padding: 10px;
+    cursor: pointer;
+}
