@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from database import SessionLocal, Base, engine
 from models import Product, Feedback, Message, ChatThread
-from routes import user, assistant
+from routes import user, assistant, assistant_ws
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="CRUD with AI")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,7 +28,8 @@ def get_all_products():
     return products
 
 app.include_router(user.router)
-app.include_router(assistant.router)
+# app.include_router(assistant.router)
+app.include_router(assistant_ws.router)
 
 
 

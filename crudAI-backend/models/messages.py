@@ -13,6 +13,9 @@ class Message(Base):
     role = Column(String, nullable=False)
     content = Column(String, nullable=False)
     tool_calls = Column(JSON, nullable = True)
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
+    total_tokens = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(
