@@ -54,6 +54,9 @@ async def chat_with_agent(req: MessageCreate, request: Request , db: Session = D
         full_response = ""
         tool_log = []
         structured_response = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
 
         try:
             async for event in agent.astream_events(
@@ -130,6 +133,13 @@ async def chat_with_agent(req: MessageCreate, request: Request , db: Session = D
                         }
                         yield f"{json.dumps(text_data)}\n\n"
 
+                if kind == "on_chat_model_end":
+                    usage = event.get("data", {}).get("output", {})
+                    if hasattr(usage, "usage_metadata") and usage.usage_metadata:
+                        prompt_tokens += usage.usage_metadata.get("input_tokens", 0)
+                        completion_tokens += usage.usage_metadata.get("output_tokens", 0)
+                        total_tokens += usage.usage_metadata.get("total_tokens", 0)
+
         # ---------- SAVE FINAL AI MESSAGE ----------
             if full_response:
                 structured_response.append({
@@ -140,7 +150,10 @@ async def chat_with_agent(req: MessageCreate, request: Request , db: Session = D
                     thread_id=thread_id,
                     role="assistant",
                     content=json.dumps(structured_response),
-                    tool_calls = tool_log if tool_log else None
+                    tool_calls = tool_log if tool_log else None,
+                    prompt_tokens = prompt_tokens,
+                    completion_tokens = completion_tokens,
+                    total_tokens = total_tokens,
                 )
 
                 db.add(agent_msg)
