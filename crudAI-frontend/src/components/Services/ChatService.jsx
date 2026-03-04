@@ -18,7 +18,9 @@ export const sendMessageStream = async (
 
     // Abort support — close WebSocket if signal fires
     signal?.addEventListener("abort", () => {
-      ws.close();
+      if(ws.readyState === WebSocket.OPEN){
+        ws.send(JSON.stringify({type: "stop"}))
+      }
       onComplete();
       resolve();
     });
@@ -50,7 +52,7 @@ export const sendMessageStream = async (
           onChunk({
             type: "tool_call",
             tool: parsed.tool,
-            display_name: parsed.display_name,
+            display_name: parsed.tool,
           });
           return;
         }

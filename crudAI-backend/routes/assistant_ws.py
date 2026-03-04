@@ -1,9 +1,8 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
-from sqlalchemy.orm import Session
-from database import get_db
+from database import SessionLocal
 from agent import agent
 from models import Message, ChatThread
-import json
+import json, asyncio
 
 router = APIRouter(
     prefix="/ws",
@@ -11,36 +10,50 @@ router = APIRouter(
 )
 
 @router.websocket("/chat/{thread_id}")
-async def websocket_chat(websocket: WebSocket, thread_id: int, db: Session = Depends(get_db)):
+async def websocket_chat(websocket: WebSocket, thread_id: int):
     await websocket.accept()
+    stop_request = False
 
-    try:
-        while True:
-            # Receive message from client
+    try:   
+        while True: 
+            
             data = await websocket.receive_json()
+            if data.get("type") == "stop":
+                continue
+            # Receive message from client
             user_content = data.get("content")
             user_id = data.get("user_id")
+            stop_request = False
 
             # Create thread if needed
             if thread_id == 0:
-                new_thread = ChatThread(user_id=user_id, title=user_content[:30])
-                db.add(new_thread)
-                db.commit()
-                db.refresh(new_thread)
-                thread_id = new_thread.id
+                with SessionLocal() as db:
+
+                    new_thread = ChatThread(user_id=user_id, title=user_content[:30])
+                    db.add(new_thread)
+                    db.commit()
+                    db.refresh(new_thread)
+                    thread_id = new_thread.id
+                    
+                await websocket.send_json({
+                    "type" : "thread_id",
+                    "thread_id" : thread_id
+                })
 
             # Save user message
-            user_msg = Message(thread_id=thread_id, role="user", content=user_content)
-            try:
-                db.add(user_msg)
-                db.commit()
+            with SessionLocal() as db:
 
-            except HTTPException:
-                db.rollback()
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed SAVING USER MESSAGE"
-                )
+                user_msg = Message(thread_id=thread_id, role="user", content=user_content)
+                try:
+                    db.add(user_msg)
+                    db.commit()
+
+                except HTTPException:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Failed SAVING USER MESSAGE"
+                    )
 
             # Stream agent response
             full_response = ""
@@ -50,11 +63,24 @@ async def websocket_chat(websocket: WebSocket, thread_id: int, db: Session = Dep
             completion_tokens = 0
             total_tokens = 0
 
+
             async for event in agent.astream_events(
                 {"messages": [("user", user_content)]},
                 config={"configurable": {"thread_id": str(thread_id)}},
                 version='v2'
             ):
+                try:
+                    incoming = await asyncio.wait_for(websocket.receive_json(), timeout=0.01)
+                    if incoming.get("type") == "stop":
+                        stop_request = True
+                except asyncio.TimeoutError:
+                    pass
+                except Exception:
+                    pass
+
+                if stop_request:
+                    break
+
                 kind = event.get("event")
 
                 if kind == "on_tool_start":
@@ -98,11 +124,13 @@ async def websocket_chat(websocket: WebSocket, thread_id: int, db: Session = Dep
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
-                db.add(agent_msg)
-                db.commit()
-                db.refresh(agent_msg)
+                with SessionLocal() as db:
 
-                await websocket.send_json({"type": "message_id", "message_id": agent_msg.id})
+                    db.add(agent_msg)
+                    db.commit()
+                    db.refresh(agent_msg)
+
+                    await websocket.send_json({"type": "message_id", "message_id": agent_msg.id})   
 
     except WebSocketDisconnect:
         print(f"Client disconnected from thread {thread_id}")

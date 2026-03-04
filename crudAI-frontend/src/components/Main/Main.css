@@ -56,6 +56,12 @@
   gap: 1rem;
   max-height: 60vh;
 }
+.user-message-wrapper{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
 .message {
   max-width: 100%;
   border-radius: 20px;
@@ -65,8 +71,22 @@
 .user-message {
   background-color: rgb(84, 84, 84);
   color: aliceblue;
-  align-self: flex-end;
   margin-left: auto;
+}
+.edit{
+  display: flex;
+  align-self: flex-end;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.edit:hover{
+  background-color:#555;
+}
+.user-message-wrapper:hover .edit{
+  opacity: 1;
 }
 .assistant-message {
   /* background-color: #363636; */

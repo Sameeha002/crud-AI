@@ -9,6 +9,8 @@ import { AiOutlineLike } from "react-icons/ai";
 import { AiOutlineDislike } from "react-icons/ai";
 import Dislike from "../Popup/Dislike";
 import FeedbackService from "../Services/FeedbackService";
+import { FiEdit2 } from "react-icons/fi";
+import TextArea from "../EditTextArea/TextArea";
 
 const Main = ({
   messages,
@@ -25,6 +27,7 @@ const Main = ({
   const [streamingMessage, setStreamingMessage] = useState("");
   const [toolCalls, setToolCalls] = useState([]);
   const [toolResults, setToolResults] = useState([]);
+  const [showTextArea, setShowTextArea] = useState(false)
   // const [selectedMessageId, setSelectedMessageId] = useState(null)
 
   const messagesEndRef = useRef(null);
@@ -240,8 +243,15 @@ const Main = ({
           {messages.map((msg, index) => {
             if (msg.role === "user") {
               return (
-                <div className="message user-message" key={index}>
-                  {msg.content}
+                <div key={index} className="user-message-wrapper">
+                  <div  className="message user-message">
+                    {msg.content}
+                  </div>
+                  <div className="edit">
+                    <FiEdit2 onClick={() => setShowTextArea(!showTextArea)}/>
+                      
+                  </div>
+                  {showTextArea && <TextArea />}
                 </div>
               );
             }
@@ -266,7 +276,7 @@ const Main = ({
                   if (item.type === "tool_call") {
                     return (
                       <div key={i} className="tool-call-back">
-                        <b>Tool called:</b> {item.display_name}
+                        <b>Tool called:</b> {item.display_name || item.tool}
                       </div>
                     );
                   }
@@ -323,15 +333,14 @@ const Main = ({
                                   .includes("search")),
                           ) && (
                             <div>
-                            <p
-                              className="sources"
-                              onClick={() => handleSourceClick(parsedContent)}
-                            >
-                              Sources
-                            </p>
-                          </div>
+                              <p
+                                className="sources"
+                                onClick={() => handleSourceClick(parsedContent)}
+                              >
+                                Sources
+                              </p>
+                            </div>
                           )}
-                          
                         </div>
                       </div>
                     );
