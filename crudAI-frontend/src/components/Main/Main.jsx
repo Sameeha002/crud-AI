@@ -27,8 +27,7 @@ const Main = ({
   const [streamingMessage, setStreamingMessage] = useState("");
   const [toolCalls, setToolCalls] = useState([]);
   const [toolResults, setToolResults] = useState([]);
-  const [showTextArea, setShowTextArea] = useState(false)
-  // const [selectedMessageId, setSelectedMessageId] = useState(null)
+  const [editingIndex, setEditingIndex] = useState(null);
 
   const messagesEndRef = useRef(null);
   const streamingMessageRef = useRef("");
@@ -230,6 +229,112 @@ const Main = ({
     return text.replace(/\n*#{1,3}\s*Sources[\s\S]*/i, "").trim();
   };
 
+   const handleEditSend = async (editedInput, updatedMessages) => {
+    if (!editedInput.trim() || isLoading) return;
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setIsLoading(true);
+    setInput("");
+    setStreamingMessage("");
+    setToolCalls([]);
+    streamingMessageRef.current = "";
+    toolCallsRef.current = [];
+    toolResultsRef.current = [];
+    messageIdRef.current = null;
+
+    try {
+      await sendMessageStream(
+        activeThread,
+        editedInput,
+        userId,
+        // onChunk call back function
+        (parsed) => {
+          if (parsed.type === "tool_call") {
+            toolCallsRef.current = [...toolCallsRef.current, parsed];
+            setToolCalls([...toolCallsRef.current]);
+            return;
+          }
+          if (parsed.type === "tool_result") {
+            toolResultsRef.current = [...toolResultsRef.current, parsed];
+            setToolResults([...toolResultsRef.current]);
+            return;
+          }
+          if (parsed.type === "message_id") {
+            messageIdRef.current = parsed.message_id;
+            return;
+          }
+          if (parsed.type === "text") {
+            streamingMessageRef.current += parsed.content;
+            setStreamingMessage(streamingMessageRef.current);
+          }
+        },
+        // onComplete
+        // onComplete
+        async () => {
+          const structuredContent = [
+            ...toolCallsRef.current,
+            ...toolResultsRef.current,
+            { type: "text", content: streamingMessageRef.current },
+          ];
+
+          setMessages([
+            ...updatedMessages,
+            {
+              role: "assistant",
+              content: JSON.stringify(structuredContent),
+              message_id: messageIdRef.current,
+            },
+          ]);
+          // }
+
+          setStreamingMessage("");
+          setToolCalls([]);
+          setToolResults([])
+          toolResultsRef.current = [];
+          streamingMessageRef.current = ''
+          setIsLoading(false);
+        },
+        // onError
+        (error) => {
+          console.error("Streaming error:", error);
+          setIsLoading(false);
+        },
+        // onThreadId
+        (newThreadId) => {
+          console.log("Received thread_id:", newThreadId);
+          if (!activeThread) {
+            setActiveThread(newThreadId);
+          }
+        },
+        // pass signal to abort controller to stop streaming messages
+        abortController.signal,
+      );
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Remove the user message if there was an error
+      setInput(false)
+      alert("Failed to send message. Please try again.");
+    }
+  };
+
+  const handleEditSubmit = async(editedContent, messageIndex) => {
+    const updatedMessages = [
+      ...messages.slice(0, messageIndex),
+      {role: "user", content: editedContent}
+    ]
+    setMessages(updatedMessages)
+    setEditingIndex(null)
+    setInput(editedContent)
+    
+    await fetch(`/ws/threads/${activeThread}/messages/truncate?from_index=${messageIndex}`, {
+    method: "DELETE"
+  });
+
+    handleEditSend(editedContent, updatedMessages)
+  }
+
   return (
     <div className={`main-container ${sidebarOpen ? "shifted" : ""}`}>
       {messages.length === 0 && (
@@ -244,14 +349,21 @@ const Main = ({
             if (msg.role === "user") {
               return (
                 <div key={index} className="user-message-wrapper">
-                  <div  className="message user-message">
-                    {msg.content}
-                  </div>
+                  <div className="message user-message">{msg.content}</div>
                   <div className="edit">
-                    <FiEdit2 onClick={() => setShowTextArea(!showTextArea)}/>
-                      
+                    <FiEdit2
+                      onClick={() =>
+                        setEditingIndex(editingIndex === index ? null : index)
+                      }
+                    />
                   </div>
-                  {showTextArea && <TextArea />}
+                  {editingIndex == index && (
+                    <TextArea
+                      content={msg.content}
+                      onCancel={() => setEditingIndex(null)}
+                      onSubmit = {(editedContent) => handleEditSubmit(editedContent, index)}
+                    />
+                  )}
                 </div>
               );
             }

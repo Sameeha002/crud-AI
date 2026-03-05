@@ -3,6 +3,8 @@ from database import SessionLocal
 from agent import agent
 from models import Message, ChatThread
 import json, asyncio
+from sqlalchemy.orm import Session
+from database import get_db
 
 router = APIRouter(
     prefix="/ws",
@@ -137,3 +139,19 @@ async def websocket_chat(websocket: WebSocket, thread_id: int):
     except Exception as e:
         await websocket.send_json({"type": "error", "message": str(e)})
         await websocket.close()
+
+@router.delete("/threads/{thread_id}/messages/truncate")
+async def truncate_messages_from_index(thread_id: str, from_index: int, db: Session = Depends(get_db)):
+    messages = db.query(Message).filter(
+        Message.thread_id == thread_id).order_by(Message.id).all()
+    
+    messages_to_delete = messages[from_index:]
+    id_to_delete = [msg.id for msg in messages_to_delete]
+
+    if id_to_delete:
+        db.query(Message).filter(
+            Message.id.in_(id_to_delete)
+        ).delete(synchronize_session=False)
+        db.commit()
+
+    return {"message": "Messages truncated successfully"}

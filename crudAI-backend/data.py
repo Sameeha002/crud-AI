@@ -43,6 +43,8 @@ def update_product(product_id: int, title: str, price: int):
     db.commit()
     db.close()
 
+    return {"message": "Product Updated"}
+
 @tool
 def deleteProduct(id : int):
     """Delete the product"""
