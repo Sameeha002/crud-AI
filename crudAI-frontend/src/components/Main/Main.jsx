@@ -229,7 +229,7 @@ const Main = ({
     return text.replace(/\n*#{1,3}\s*Sources[\s\S]*/i, "").trim();
   };
 
-   const handleEditSend = async (editedInput, updatedMessages) => {
+  const handleEditSend = async (editedInput, updatedMessages) => {
     if (!editedInput.trim() || isLoading) return;
 
     const abortController = new AbortController();
@@ -291,9 +291,9 @@ const Main = ({
 
           setStreamingMessage("");
           setToolCalls([]);
-          setToolResults([])
+          setToolResults([]);
           toolResultsRef.current = [];
-          streamingMessageRef.current = ''
+          streamingMessageRef.current = "";
           setIsLoading(false);
         },
         // onError
@@ -314,26 +314,29 @@ const Main = ({
     } catch (error) {
       console.error("Error sending message:", error);
       // Remove the user message if there was an error
-      setInput(false)
+      setInput(false);
       alert("Failed to send message. Please try again.");
     }
   };
 
-  const handleEditSubmit = async(editedContent, messageIndex) => {
+  const handleEditSubmit = async (editedContent, messageIndex) => {
     const updatedMessages = [
       ...messages.slice(0, messageIndex),
-      {role: "user", content: editedContent}
-    ]
-    setMessages(updatedMessages)
-    setEditingIndex(null)
-    setInput(editedContent)
-    
-    await fetch(`/ws/threads/${activeThread}/messages/truncate?from_index=${messageIndex}`, {
-    method: "DELETE"
-  });
+      { role: "user", content: editedContent },
+    ];
+    setMessages(updatedMessages);
+    setEditingIndex(null);
+    setInput(editedContent);
 
-    handleEditSend(editedContent, updatedMessages)
-  }
+    await fetch(
+      `http://127.0.0.1:8000/api/threads/${activeThread}/messages/truncate?from_index=${messageIndex}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    handleEditSend(editedContent, updatedMessages);
+  };
 
   return (
     <div className={`main-container ${sidebarOpen ? "shifted" : ""}`}>
@@ -361,7 +364,9 @@ const Main = ({
                     <TextArea
                       content={msg.content}
                       onCancel={() => setEditingIndex(null)}
-                      onSubmit = {(editedContent) => handleEditSubmit(editedContent, index)}
+                      onSubmit={(editedContent) =>
+                        handleEditSubmit(editedContent, index)
+                      }
                     />
                   )}
                 </div>
