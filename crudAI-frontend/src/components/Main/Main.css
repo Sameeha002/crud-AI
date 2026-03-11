@@ -152,8 +152,12 @@
   margin-top: 1rem;
 }
 .like-button,
-.dislike-button {
+.dislike-button{
   font-size: 1.2rem;
+  cursor: pointer;
+}
+.regenerate-button{
+  font-size: 1.5rem;
   cursor: pointer;
 }
 .sources {

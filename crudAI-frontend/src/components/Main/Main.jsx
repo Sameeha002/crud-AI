@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import "./Main.css";
 import { IoSend } from "react-icons/io5";
 import { FaCircleStop } from "react-icons/fa6";
-import { sendMessageStream } from "../Services/ChatService";
+import {
+  sendMessageStream,
+  sendEditMessageStream,
+  sendRegenerateStream,
+} from "../Services/ChatService";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AiOutlineLike } from "react-icons/ai";
@@ -11,6 +15,7 @@ import Dislike from "../Popup/Dislike";
 import FeedbackService from "../Services/FeedbackService";
 import { FiEdit2 } from "react-icons/fi";
 import TextArea from "../EditTextArea/TextArea";
+import { CiRedo } from "react-icons/ci";
 
 const Main = ({
   messages,
@@ -104,7 +109,9 @@ const Main = ({
             ...toolResultsRef.current,
             { type: "text", content: streamingMessageRef.current },
           ];
-
+          setStreamingMessage("");
+          setToolCalls([]);
+          setToolResults([]);
           setMessages((prev) => [
             ...prev,
             {
@@ -229,96 +236,6 @@ const Main = ({
     return text.replace(/\n*#{1,3}\s*Sources[\s\S]*/i, "").trim();
   };
 
-  const handleEditSend = async (editedInput, updatedMessages) => {
-    if (!editedInput.trim() || isLoading) return;
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    setIsLoading(true);
-    setInput("");
-    setStreamingMessage("");
-    setToolCalls([]);
-    streamingMessageRef.current = "";
-    toolCallsRef.current = [];
-    toolResultsRef.current = [];
-    messageIdRef.current = null;
-
-    try {
-      await sendMessageStream(
-        activeThread,
-        editedInput,
-        userId,
-        // onChunk call back function
-        (parsed) => {
-          if (parsed.type === "tool_call") {
-            toolCallsRef.current = [...toolCallsRef.current, parsed];
-            setToolCalls([...toolCallsRef.current]);
-            return;
-          }
-          if (parsed.type === "tool_result") {
-            toolResultsRef.current = [...toolResultsRef.current, parsed];
-            setToolResults([...toolResultsRef.current]);
-            return;
-          }
-          if (parsed.type === "message_id") {
-            messageIdRef.current = parsed.message_id;
-            return;
-          }
-          if (parsed.type === "text") {
-            streamingMessageRef.current += parsed.content;
-            setStreamingMessage(streamingMessageRef.current);
-          }
-        },
-        // onComplete
-        // onComplete
-        async () => {
-          const structuredContent = [
-            ...toolCallsRef.current,
-            ...toolResultsRef.current,
-            { type: "text", content: streamingMessageRef.current },
-          ];
-
-          setMessages([
-            ...updatedMessages,
-            {
-              role: "assistant",
-              content: JSON.stringify(structuredContent),
-              message_id: messageIdRef.current,
-            },
-          ]);
-          // }
-
-          setStreamingMessage("");
-          setToolCalls([]);
-          setToolResults([]);
-          toolResultsRef.current = [];
-          streamingMessageRef.current = "";
-          setIsLoading(false);
-        },
-        // onError
-        (error) => {
-          console.error("Streaming error:", error);
-          setIsLoading(false);
-        },
-        // onThreadId
-        (newThreadId) => {
-          console.log("Received thread_id:", newThreadId);
-          if (!activeThread) {
-            setActiveThread(newThreadId);
-          }
-        },
-        // pass signal to abort controller to stop streaming messages
-        abortController.signal,
-      );
-    } catch (error) {
-      console.error("Error sending message:", error);
-      // Remove the user message if there was an error
-      setInput(false);
-      alert("Failed to send message. Please try again.");
-    }
-  };
-
   const handleEditSubmit = async (editedContent, messageIndex) => {
     const updatedMessages = [
       ...messages.slice(0, messageIndex),
@@ -326,16 +243,150 @@ const Main = ({
     ];
     setMessages(updatedMessages);
     setEditingIndex(null);
-    setInput(editedContent);
 
-    await fetch(
-      `http://127.0.0.1:8000/api/threads/${activeThread}/messages/truncate?from_index=${messageIndex}`,
-      {
-        method: "DELETE",
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setIsLoading(true);
+    setStreamingMessage("");
+    setToolCalls([]);
+    streamingMessageRef.current = "";
+    toolCallsRef.current = [];
+    toolResultsRef.current = [];
+    messageIdRef.current = null;
+
+    await sendEditMessageStream(
+      activeThread,
+      messageIndex,
+      editedContent,
+      // onChunk — same as handleEditSend
+      (parsed) => {
+        if (parsed.type === "tool_call") {
+          toolCallsRef.current = [...toolCallsRef.current, parsed];
+          setToolCalls([...toolCallsRef.current]);
+          return;
+        }
+        if (parsed.type === "tool_result") {
+          toolResultsRef.current = [...toolResultsRef.current, parsed];
+          setToolResults([...toolResultsRef.current]);
+          return;
+        }
+        if (parsed.type === "message_id") {
+          messageIdRef.current = parsed.message_id;
+          return;
+        }
+        if (parsed.type === "text") {
+          streamingMessageRef.current += parsed.content;
+          setStreamingMessage(streamingMessageRef.current);
+        }
       },
+      // onComplete
+      () => {
+        const structuredContent = [
+          ...toolCallsRef.current,
+          ...toolResultsRef.current,
+          { type: "text", content: streamingMessageRef.current },
+        ];
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        setMessages([
+          ...updatedMessages,
+          {
+            role: "assistant",
+            content: JSON.stringify(structuredContent),
+            message_id: messageIdRef.current,
+          },
+        ]);
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        toolResultsRef.current = [];
+        streamingMessageRef.current = "";
+        setIsLoading(false);
+      },
+      // onError
+      (error) => {
+        console.error("Streaming error:", error);
+        setIsLoading(false);
+      },
+      abortController.signal,
+    );
+  };
+
+  const handleRegenerate = async (msg) => {
+    // Clear the existing message and mark regenerating
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.message_id === msg.message_id
+          ? { ...m, content: "", isRegenerating: true }
+          : m,
+      ),
     );
 
-    handleEditSend(editedContent, updatedMessages);
+    setIsLoading(true);
+    streamingMessageRef.current = "";
+    toolCallsRef.current = [];
+    toolResultsRef.current = [];
+    messageIdRef.current = null;
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    await sendRegenerateStream(
+      activeThread,
+      msg.message_id,
+      (parsed) => {
+        if (parsed.type === "tool_call") {
+          toolCallsRef.current = [...toolCallsRef.current, parsed];
+          setToolCalls([...toolCallsRef.current]);
+          return;
+        }
+        if (parsed.type === "tool_result") {
+          toolResultsRef.current = [...toolResultsRef.current, parsed];
+          setToolResults([...toolResultsRef.current]);
+          return;
+        }
+        if (parsed.type === "message_id") {
+          messageIdRef.current = parsed.message_id;
+          return;
+        }
+        if (parsed.type === "text") {
+          streamingMessageRef.current += parsed.content;
+          setStreamingMessage(streamingMessageRef.current);
+        }
+      },
+      () => {
+        // onComplete — replace the message in state
+        const structuredContent = [
+          ...toolCallsRef.current,
+          ...toolResultsRef.current,
+          { type: "text", content: streamingMessageRef.current },
+        ];
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.message_id === msg.message_id
+              ? {
+                  ...m,
+                  content: JSON.stringify(structuredContent),
+                  isRegenerating: false,
+                }
+              : m,
+          ),
+        );
+        setStreamingMessage("");
+        setIsLoading(false);
+        streamingMessageRef.current = "";
+      },
+      (err) => {
+        console.error(err);
+        setIsLoading(false);
+      },
+      abortController.signal,
+    );
   };
 
   return (
@@ -441,6 +492,12 @@ const Main = ({
                               modalId={`dislikeModal-${msg.message_id}`}
                             />
                           </div>
+                          <div>
+                            <CiRedo
+                              className="regenerate-button"
+                              onClick={() => handleRegenerate(msg)}
+                            />
+                          </div>
                           {parsedContent.some(
                             (c) =>
                               c.type === "tool_call" &&
@@ -505,14 +562,23 @@ const Main = ({
       </div>
 
       <div className="chat-input">
-        <input
-          type="text"
+        <textarea
           placeholder="Enter Message Here . . ."
           className="chat-input-field"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onChange={(e) => {
+            setInput(e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = e.target.scrollHeight + "px";
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           disabled={isLoading}
+          rows={1}
         />
 
         {isLoading ? (

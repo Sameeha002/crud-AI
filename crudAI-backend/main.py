@@ -3,7 +3,6 @@ from database import SessionLocal, Base, engine
 from models import Product, Feedback, Message, ChatThread
 from routes import user, assistant, assistant_ws
 from fastapi.middleware.cors import CORSMiddleware
-from routes import editMessages as messages_router
 
 
 
@@ -31,7 +30,6 @@ def get_all_products():
 app.include_router(user.router)
 # app.include_router(assistant.router)
 app.include_router(assistant_ws.router)
-app.include_router(messages_router.router)
 
 
 
