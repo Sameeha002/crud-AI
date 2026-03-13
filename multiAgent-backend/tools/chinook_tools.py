@@ -1,4 +1,4 @@
-from chinook_db import get_session, get_classes
+from tools.chinook_db import get_session, get_classes
 from langchain_core.tools import tool
 
 @tool
@@ -101,3 +101,5 @@ def check_for_songs(song_title: str):
         return [{"Track": r[0], "Artist": r[1], "Album": r[2]} for r in results]
     finally:
         session.close()
+
+music_tools = [get_albums_by_artist, get_tracks_by_artist, get_tracks_by_genre, check_for_songs]
