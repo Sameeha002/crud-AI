@@ -1,28 +1,7 @@
 import axios from "axios";
 
-const API_URL = "http://127.0.0.1:8000/assistant/";
-
-// export const sendMessage = async (thread_id, content, userId = null) => {
-//   const data = {
-//     content: content,
-//   };
-
-//   if (thread_id) {
-//     data.thread_id = thread_id;
-//   }
-
-//   if (userId) {
-//     data.user_id = userId;
-//   }
-//   console.log("Sending payload:", data);
-//   const response = await axios.post(API_URL, data, {
-//     headers: {
-//       "Content-Type": "application/json",
-//     },
-//   });
-
-//   return response.data;
-// };
+const WS_URL = "ws://127.0.0.1:8000/ws/chat";
+const API_URL = "http://127.0.0.1:8000";
 
 export const sendMessageStream = async (
   thread_id,
@@ -32,135 +11,354 @@ export const sendMessageStream = async (
   onComplete,
   onError,
   onThreadId,
-  signal
+  signal,
 ) => {
-  const data = {
-    content: content,
-  };
+  // Use thread_id if exists, otherwise 0 to create new thread
+  const threadId = thread_id || 0;
 
-  if (thread_id) data.thread_id = thread_id;
-  if (userId) data.user_id = userId;
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`${WS_URL}/${threadId}`);
 
-  try {
-    const response = await fetch(API_URL, { 
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      signal,
+    // Abort support — close WebSocket if signal fires
+    signal?.addEventListener("abort", () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "stop" }));
+      }
+      onComplete();
+      resolve();
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    ws.onopen = () => {
+      console.log("WebSocket connected!");
+      ws.send(
+        JSON.stringify({
+          content: content,
+          user_id: userId,
+        }),
+      );
+    };
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        console.log("Received:", parsed);
 
-    while (true) {
+        if (parsed.type === "thread_id") {
+          console.log("New thread created:", parsed.thread_id);
+          if (onThreadId && parsed.thread_id) {
+            onThreadId(parsed.thread_id);
+          }
+          return;
+        }
 
-      if(signal?.aborted){
-        await reader.cancel();
-        onComplete();
-        return;
+        if (parsed.type === "tool_call") {
+          onChunk({
+            type: "tool_call",
+            tool: parsed.tool,
+            display_name: parsed.tool,
+          });
+          return;
+        }
+
+        if (parsed.type === "tool_result") {
+          onChunk({
+            type: "tool_result",
+            tool: parsed.tool,
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "text") {
+          onChunk({
+            type: "text",
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "message_id") {
+          onChunk({
+            type: "message_id",
+            message_id: parsed.message_id,
+          });
+          // message_id is the last event — streaming is done
+          ws.close();
+          onComplete();
+          resolve();
+          return;
+        }
+
+        if (parsed.type === "error") {
+          console.error("Server error:", parsed.message);
+          onError(new Error(parsed.message));
+          resolve();
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to parse message:", err);
+        onError(err);
+        resolve();
       }
+    };
 
-      const { done, value } = await reader.read();
-      
-      if (done) {
-        console.log(" Stream reading completed");
-        break;
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      onError(new Error("WebSocket connection error"));
+      resolve();
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+    };
+  });
+};
+
+export const sendEditMessageStream = async (
+  thread_id,
+  from_index,
+  content,
+  onChunk,
+  onComplete,
+  onError,
+  onThreadId,
+  signal,
+) => {
+  // Use thread_id if exists, otherwise 0 to create new thread
+  const threadId = thread_id || 0;
+
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`${WS_URL}/${threadId}`);
+
+    // Abort support — close WebSocket if signal fires
+    signal?.addEventListener("abort", () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "stop" }));
       }
-
-      // Decode the chunk
-      const chunk = decoder.decode(value, { stream: true });
-      buffer += chunk;
-      // Process all complete lines in the buffer
-      let newlineIndex;
-      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.substring(0, newlineIndex).trim();
-        console.log('line: ',line)
-        buffer = buffer.substring(newlineIndex + 1);
-
-
-        
-        if (line.startsWith('data: ')) {
-          const token = line.substring(6); // Remove "data: " prefix
-          console.log('Extracted token:', token);
-
-          if (token === '[DONE]') {
-            console.log('Received [DONE] - completing stream');
-            onComplete();
-            return;
-          } else if (token === 'ERROR') {
-            console.error('Received ERROR from server');
-            onError(new Error('Server error during streaming'));
-            return;
-          } else if (token) {
-            console.log('Calling onChunk with token:', token);
-            try {
-              const parsed = JSON.parse(token)
-              console.log('Parsed data', parsed)
-              if(parsed.type === "thread_id"){
-                console.log("Received Thread Id: ", parsed.thread_id)
-                if(onThreadId && parsed.thread_id){
-                  onThreadId(parsed.thread_id)
-                }
-                continue;
-                
-              }
-              if(parsed.type === 'tool_call'){
-                onChunk({
-                  type: "tool_call",
-                  tool: parsed.tool,
-                  display_name: parsed.display_name
-                  
-                })
-              }
-              else if(parsed.type === 'tool_result'){
-                onChunk({
-                  type: "tool_result",
-                  tool: parsed.tool,
-                  content: parsed.content
-                })
-              }
-              else if(parsed.type === 'text'){
-                onChunk({
-                  type: "text",
-                  content: parsed.content
-                })
-                
-              }
-            } catch (error) {
-              onChunk({ type: 'text', content: token })
-            }
-            
-          } 
-          else if(line.startsWith('thread_id: '))  {
-            const newThreadId = line.substring(11).trim();
-            if(onThreadId && newThreadId){
-              onThreadId(newThreadId)
-            }
-
-          } 
-        } 
-      }
-    }
-
-    console.log('Stream ended without [DONE] signal, calling onComplete anyway');
-    onComplete();
-
-  } catch (error) {
-
-    if(error.name === 'AbortError'){
-      console.log('Stream aborted by user')
       onComplete();
-      return;
-    }
+      resolve();
+    });
 
-    console.error('Stream error:', error);
-    onError(error);
-  }
+    ws.onopen = () => {
+      console.log("WebSocket connected!");
+      ws.send(
+        JSON.stringify({
+          type: "edit_message",
+          from_index: from_index,
+          content: content,
+        }),
+      );
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        console.log("Received:", parsed);
+
+        if (parsed.type === "thread_id") {
+          console.log("New thread created:", parsed.thread_id);
+          if (onThreadId && parsed.thread_id) {
+            onThreadId(parsed.thread_id);
+          }
+          return;
+        }
+
+        if (parsed.type === "tool_call") {
+          onChunk({
+            type: "tool_call",
+            tool: parsed.tool,
+            display_name: parsed.tool,
+          });
+          return;
+        }
+
+        if (parsed.type === "tool_result") {
+          onChunk({
+            type: "tool_result",
+            tool: parsed.tool,
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "text") {
+          onChunk({
+            type: "text",
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "message_id") {
+          onChunk({
+            type: "message_id",
+            message_id: parsed.message_id,
+          });
+          if (parsed.type === "regenerate") {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === parsed.messageId
+                  ? { ...m, content: parsed.content, isRegenerating: false }
+                  : m,
+              ),
+            );
+          }
+          // message_id is the last event — streaming is done
+          ws.close();
+          onComplete();
+          resolve();
+          return;
+        }
+
+        if (parsed.type === "error") {
+          console.error("Server error:", parsed.message);
+          onError(new Error(parsed.message));
+          resolve();
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to parse message:", err);
+        onError(err);
+        resolve();
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      onError(new Error("WebSocket connection error"));
+      resolve();
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+    };
+  });
+};
+
+export const sendRegenerateStream = async (
+  thread_id,
+  message_id,
+  onChunk,
+  onComplete,
+  onError,
+  signal,
+  onThreadId,
+) => {
+  // Use thread_id if exists, otherwise 0 to create new thread
+  const threadId = thread_id || 0;
+
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`${WS_URL}/${threadId}`);
+
+    // Abort support — close WebSocket if signal fires
+    signal?.addEventListener("abort", () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "stop" }));
+      }
+      onComplete();
+      resolve();
+    });
+
+    ws.onopen = () => {
+      console.log("WebSocket connected!");
+      ws.send(
+        JSON.stringify({
+          type: "regenerate",
+          message_id,
+        }),
+      );
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        console.log("Received:", parsed);
+
+        if (parsed.type === "thread_id") {
+          console.log("New thread created:", parsed.thread_id);
+          if (onThreadId && parsed.thread_id) {
+            onThreadId(parsed.thread_id);
+          }
+          return;
+        }
+
+        if (parsed.type === "tool_call") {
+          onChunk({
+            type: "tool_call",
+            tool: parsed.tool,
+            display_name: parsed.tool,
+          });
+          return;
+        }
+
+        if (parsed.type === "tool_result") {
+          onChunk({
+            type: "tool_result",
+            tool: parsed.tool,
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "text") {
+          onChunk({
+            type: "text",
+            content: parsed.content,
+          });
+          return;
+        }
+
+        if (parsed.type === "message_id") {
+          onChunk({
+            type: "message_id",
+            message_id: parsed.message_id,
+          });
+          if (parsed.type === "regenerate") {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === parsed.messageId
+                  ? { ...m, content: parsed.content, isRegenerating: false }
+                  : m,
+              ),
+            );
+          }
+          // message_id is the last event — streaming is done
+          ws.close();
+          onComplete();
+          resolve();
+          return;
+        }
+
+        if (parsed.type === "error") {
+          console.error("Server error:", parsed.message);
+          onError(new Error(parsed.message));
+          resolve();
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to parse message:", err);
+        onError(err);
+        resolve();
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      onError(new Error("WebSocket connection error"));
+      resolve();
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket closed");
+    };
+  });
+};
+
+export const sendAgentMessage = async (user_id, thread_id, input) => {
+  const response = await axios.post(`${API_URL}/api/v1/agents/run`, {
+    user_id,
+    thread_id: thread_id ? Number(thread_id):0,
+    input,
+  });
+  return response.data
 };

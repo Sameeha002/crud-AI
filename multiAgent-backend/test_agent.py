@@ -20,5 +20,7 @@ def test_query(query: str):
     print(f"Response: {final_message.content}")
 
 # Test music queries
-test_query("Show me albums by AC/DC")
+# test_query("Show me albums by AC/DC")
 # test_query("Get invoices for customer Mark")
+
+test_query("My customer id is 1. What was my most recent invoice, and who was the employee that helped me with it?")

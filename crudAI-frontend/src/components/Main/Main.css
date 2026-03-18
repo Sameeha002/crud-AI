@@ -145,3 +145,25 @@
   padding: 0.2rem 0.5rem;
   border-radius: 15px;
 }
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mode-btn {
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: inherit;
+}
+
+.mode-btn.active {
+  background: #6c47ff;
+  color: white;
+  border-color: #6c47ff;
+}

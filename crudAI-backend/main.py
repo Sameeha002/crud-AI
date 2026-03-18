@@ -3,9 +3,7 @@ from database import SessionLocal, Base, engine
 from models import Product, Feedback, Message, ChatThread
 from routes import user, assistant
 from fastapi.middleware.cors import CORSMiddleware
-
-
-
+from multiAgents.router import router as agents_router
 
 app = FastAPI(title="CRUD with AI")
 app.add_middleware(
@@ -29,6 +27,8 @@ def get_all_products():
 
 app.include_router(user.router)
 app.include_router(assistant.router)
+app.include_router(assistant_ws.router)
+app.include_router(agents_router)
 
 
 

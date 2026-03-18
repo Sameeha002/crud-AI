@@ -1,7 +1,7 @@
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
-from prompts import SUPERVISOR_PROMPT
+from ..prompts import SUPERVISOR_PROMPT
 import os
 
 load_dotenv()

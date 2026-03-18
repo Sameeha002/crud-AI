@@ -2,13 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import "./Main.css";
 import { IoSend } from "react-icons/io5";
 import { FaCircleStop } from "react-icons/fa6";
-import { sendMessageStream } from "../Services/ChatService";
+import {
+  sendMessageStream,
+  sendEditMessageStream,
+  sendRegenerateStream,
+} from "../Services/ChatService";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AiOutlineLike } from "react-icons/ai";
 import { AiOutlineDislike } from "react-icons/ai";
 import Dislike from "../Popup/Dislike";
 import FeedbackService from "../Services/FeedbackService";
+import { FiEdit2 } from "react-icons/fi";
+import TextArea from "../EditTextArea/TextArea";
+import { CiRedo } from "react-icons/ci";
+import { sendAgentMessage } from "../Services/ChatService";
 
 const Main = ({
   messages,
@@ -25,7 +33,8 @@ const Main = ({
   const [streamingMessage, setStreamingMessage] = useState("");
   const [toolCalls, setToolCalls] = useState([]);
   const [toolResults, setToolResults] = useState([]);
-  // const [selectedMessageId, setSelectedMessageId] = useState(null)
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [mode, setMode] = useState("assistant");
 
   const messagesEndRef = useRef(null);
   const streamingMessageRef = useRef("");
@@ -102,7 +111,9 @@ const Main = ({
             ...toolResultsRef.current,
             { type: "text", content: streamingMessageRef.current },
           ];
-
+          setStreamingMessage("");
+          setToolCalls([]);
+          setToolResults([]);
           setMessages((prev) => [
             ...prev,
             {
@@ -168,6 +179,58 @@ const Main = ({
       abortControllerRef.current.abort();
     }
   };
+  const handleAgentSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const data = await sendAgentMessage(userId, activeThread, currentInput);
+      if (!activeThread && data.thread_id) {
+        setActiveThread(data.thread_id);
+      }
+      const structuredContent = [
+        // tool calls first
+        ...(data.routed_to ? [{type: "routed_to", agent: data.routed_to}] : []),
+        ...(data.tool_calls || []).map((tc) => ({
+          type: "tool_call",
+          tool: tc.tool,
+          display_name: tc.tool,
+        })),
+        // then tool results
+        ...(data.tool_results || []).map((tr) => ({
+          type: "tool_result",
+          tool: tr.tool,
+          content:
+            typeof tr.content === "string"
+              ? tr.content
+              : JSON.stringify(tr.content, null, 2),
+        })),
+        // finally the text response
+        { type: "text", content: data.response ?? "" },
+      ];
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: JSON.stringify(structuredContent),
+          message_id: data.message_id ?? null,
+        },
+      ]);
+    } catch (error) {
+      console.error("Agent error:", error);
+      setMessages((prev) => prev.slice(0, -1));
+      setInput(currentInput);
+      alert("Agent failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const extractSources = (text) => {
     if (!text || typeof text !== "string") return [];
@@ -227,6 +290,159 @@ const Main = ({
     return text.replace(/\n*#{1,3}\s*Sources[\s\S]*/i, "").trim();
   };
 
+  const handleEditSubmit = async (editedContent, messageIndex) => {
+    const updatedMessages = [
+      ...messages.slice(0, messageIndex),
+      { role: "user", content: editedContent },
+    ];
+    setMessages(updatedMessages);
+    setEditingIndex(null);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setIsLoading(true);
+    setStreamingMessage("");
+    setToolCalls([]);
+    streamingMessageRef.current = "";
+    toolCallsRef.current = [];
+    toolResultsRef.current = [];
+    messageIdRef.current = null;
+
+    await sendEditMessageStream(
+      activeThread,
+      messageIndex,
+      editedContent,
+      // onChunk — same as handleEditSend
+      (parsed) => {
+        if (parsed.type === "tool_call") {
+          toolCallsRef.current = [...toolCallsRef.current, parsed];
+          setToolCalls([...toolCallsRef.current]);
+          return;
+        }
+        if (parsed.type === "tool_result") {
+          toolResultsRef.current = [...toolResultsRef.current, parsed];
+          setToolResults([...toolResultsRef.current]);
+          return;
+        }
+        if (parsed.type === "message_id") {
+          messageIdRef.current = parsed.message_id;
+          return;
+        }
+        if (parsed.type === "text") {
+          streamingMessageRef.current += parsed.content;
+          setStreamingMessage(streamingMessageRef.current);
+        }
+      },
+      // onComplete
+      () => {
+        const structuredContent = [
+          ...toolCallsRef.current,
+          ...toolResultsRef.current,
+          { type: "text", content: streamingMessageRef.current },
+        ];
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        setMessages([
+          ...updatedMessages,
+          {
+            role: "assistant",
+            content: JSON.stringify(structuredContent),
+            message_id: messageIdRef.current,
+          },
+        ]);
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        toolResultsRef.current = [];
+        streamingMessageRef.current = "";
+        setIsLoading(false);
+      },
+      // onError
+      (error) => {
+        console.error("Streaming error:", error);
+        setIsLoading(false);
+      },
+      abortController.signal,
+    );
+  };
+
+  const handleRegenerate = async (msg) => {
+    // Clear the existing message and mark regenerating
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.message_id === msg.message_id
+          ? { ...m, content: "", isRegenerating: true }
+          : m,
+      ),
+    );
+
+    setIsLoading(true);
+    streamingMessageRef.current = "";
+    toolCallsRef.current = [];
+    toolResultsRef.current = [];
+    messageIdRef.current = null;
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    await sendRegenerateStream(
+      activeThread,
+      msg.message_id,
+      (parsed) => {
+        if (parsed.type === "tool_call") {
+          toolCallsRef.current = [...toolCallsRef.current, parsed];
+          setToolCalls([...toolCallsRef.current]);
+          return;
+        }
+        if (parsed.type === "tool_result") {
+          toolResultsRef.current = [...toolResultsRef.current, parsed];
+          setToolResults([...toolResultsRef.current]);
+          return;
+        }
+        if (parsed.type === "message_id") {
+          messageIdRef.current = parsed.message_id;
+          return;
+        }
+        if (parsed.type === "text") {
+          streamingMessageRef.current += parsed.content;
+          setStreamingMessage(streamingMessageRef.current);
+        }
+      },
+      () => {
+        // onComplete — replace the message in state
+        const structuredContent = [
+          ...toolCallsRef.current,
+          ...toolResultsRef.current,
+          { type: "text", content: streamingMessageRef.current },
+        ];
+        setStreamingMessage("");
+        setToolCalls([]);
+        setToolResults([]);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.message_id === msg.message_id
+              ? {
+                  ...m,
+                  content: JSON.stringify(structuredContent),
+                  isRegenerating: false,
+                }
+              : m,
+          ),
+        );
+        setStreamingMessage("");
+        setIsLoading(false);
+        streamingMessageRef.current = "";
+      },
+      (err) => {
+        console.error(err);
+        setIsLoading(false);
+      },
+      abortController.signal,
+    );
+  };
+
   return (
     <div className={`main-container ${sidebarOpen ? "shifted" : ""}`}>
       {messages.length === 0 && (
@@ -240,8 +456,24 @@ const Main = ({
           {messages.map((msg, index) => {
             if (msg.role === "user") {
               return (
-                <div className="message user-message" key={index}>
-                  {msg.content}
+                <div key={index} className="user-message-wrapper">
+                  <div className="message user-message">{msg.content}</div>
+                  <div className="edit">
+                    <FiEdit2
+                      onClick={() =>
+                        setEditingIndex(editingIndex === index ? null : index)
+                      }
+                    />
+                  </div>
+                  {editingIndex == index && (
+                    <TextArea
+                      content={msg.content}
+                      onCancel={() => setEditingIndex(null)}
+                      onSubmit={(editedContent) =>
+                        handleEditSubmit(editedContent, index)
+                      }
+                    />
+                  )}
                 </div>
               );
             }
@@ -263,10 +495,22 @@ const Main = ({
             return (
               <div className="message assistant-message" key={index}>
                 {parsedContent.map((item, i) => {
+                  if (item.type === "routed_to") {
+                    const agentLabels = {
+                      music_agent: "Music Agent",
+                      sales_agent: "Sales Agent",
+                    };
+                    return (
+                      <div key={i} className="  ">
+                        <span>Supervisor routed to: </span>
+                        <strong>{agentLabels[item.agent] || item.agent}</strong>
+                      </div>
+                    );
+                  }
                   if (item.type === "tool_call") {
                     return (
                       <div key={i} className="tool-call-back">
-                        <b>Tool called:</b> {item.display_name}
+                        <b>Tool called:</b> {item.display_name || item.tool}
                       </div>
                     );
                   }
@@ -314,6 +558,12 @@ const Main = ({
                               modalId={`dislikeModal-${msg.message_id}`}
                             />
                           </div>
+                          <div>
+                            <CiRedo
+                              className="regenerate-button"
+                              onClick={() => handleRegenerate(msg)}
+                            />
+                          </div>
                           {parsedContent.some(
                             (c) =>
                               c.type === "tool_call" &&
@@ -323,15 +573,14 @@ const Main = ({
                                   .includes("search")),
                           ) && (
                             <div>
-                            <p
-                              className="sources"
-                              onClick={() => handleSourceClick(parsedContent)}
-                            >
-                              Sources
-                            </p>
-                          </div>
+                              <p
+                                className="sources"
+                                onClick={() => handleSourceClick(parsedContent)}
+                              >
+                                Sources
+                              </p>
+                            </div>
                           )}
-                          
                         </div>
                       </div>
                     );
@@ -379,27 +628,58 @@ const Main = ({
       </div>
 
       <div className="chat-input">
-        <input
-          type="text"
-          placeholder="Enter Message Here . . ."
-          className="chat-input-field"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          disabled={isLoading}
-        />
+        <div className="chat-input-card">
+          {/* Mode toggle toolbar at top */}
+          <div className="chat-input-toolbar">
+            <button
+              className={mode === "assistant" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("assistant")}
+            >
+              Assistant
+            </button>
+            <button
+              className={mode === "agent" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setMode("agent")}
+            >
+              Multi-Agent
+            </button>
+          </div>
 
-        {isLoading ? (
-          <FaCircleStop className="stop-btn" onClick={handleStop} />
-        ) : (
-          <IoSend
-            className="send-btn"
-            onClick={handleSend}
-            style={{
-              cursor: "pointer",
-            }}
-          />
-        )}
+          {/* Textarea + send button row below */}
+          <div className="chat-input-bottom">
+            <textarea
+              placeholder={
+                mode === "agent"
+                  ? "Ask the multi-agent..."
+                  : "Enter Message Here . . ."
+              }
+              className="chat-input-field"
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  mode === "agent" ? handleAgentSend() : handleSend();
+                }
+              }}
+              disabled={isLoading}
+              rows={1}
+            />
+
+            {isLoading ? (
+              <FaCircleStop className="stop-btn" onClick={handleStop} />
+            ) : (
+              <IoSend
+                className="send-btn"
+                onClick={mode === "agent" ? handleAgentSend : handleSend}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

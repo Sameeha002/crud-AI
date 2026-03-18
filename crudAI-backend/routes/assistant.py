@@ -10,7 +10,7 @@ import json
 
 router = APIRouter(
     prefix="/assistant",
-    tags=["Assistant"]
+    tags=["Assistant-SSE"]
 )
 
 @router.post('/')

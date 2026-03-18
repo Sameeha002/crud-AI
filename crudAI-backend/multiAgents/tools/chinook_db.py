@@ -5,11 +5,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker, Session
+import threading
 
 _engine = None
 _session_factory = None
 _db_instance = None
 Base = None
+_initialized = False
+_lock = threading.Lock()
 
 # music agent
 def get_engine_for_chinook_db():
@@ -44,12 +47,19 @@ def get_engine_for_chinook_db():
 
 def initialize_db():
     """Run once — sets up engine, reflects tables, creates session factory"""
-    global _engine, _session_factory, Base
-    if _engine is None:
+    global _engine, _session_factory, Base, _initialized
+    if _initialized:
+        return
+
+    with _lock:
+        if _initialized:
+            return
         _engine = get_engine_for_chinook_db()
         Base = automap_base()
         Base.prepare(_engine, reflect=True)  # reads all existing Chinook tables
         _session_factory = sessionmaker(bind=_engine)
+        _initialized = True
+        print('chinook db initialized')
 
 def get_chinook_db() -> SQLDatabase:
     """For LangChain agents that need SQLDatabase wrapper"""
@@ -70,4 +80,3 @@ def get_classes():
     return Base.classes
 
 
-# sales agent
