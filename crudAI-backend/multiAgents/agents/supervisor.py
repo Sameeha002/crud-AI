@@ -1,5 +1,5 @@
 from langchain_groq import ChatGroq
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from dotenv import load_dotenv
 from ..prompts import SUPERVISOR_PROMPT
 import os
@@ -27,4 +27,7 @@ def run_supervisor(state: dict):
 
     print(f"Supervisor routed to: {next_agent}")  
 
-    return {"next_agent": next_agent}
+    return {
+        "next_agent": next_agent,
+        "messages": [AIMessage(content=f"__routed_to__{next_agent}")]
+        }

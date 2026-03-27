@@ -13,11 +13,11 @@ load_dotenv()
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     api_key=os.getenv("GROQ_API_KEY")
-)
+).bind(tool_choice="auto")
 
 # Create music agent with tools and system prompt
 music_agent = create_react_agent(
-    model=llm,
+    model=llm.bind_tools(music_tools),
     tools=music_tools,
     prompt=SystemMessage(content=MUSIC_AGENT_PROMPT)
 )
