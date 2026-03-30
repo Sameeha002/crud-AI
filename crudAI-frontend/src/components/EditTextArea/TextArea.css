@@ -1,0 +1,36 @@
+.text-area-container{
+    width: 100%;
+    background-color:rgb(77, 73, 73);
+    padding: 1rem;
+    border-radius: 10px;
+    gap: 20px;
+    display: grid;
+}
+.text-area-input-div input{
+    width: 100%;
+    outline: none;
+    border: none;
+    padding: 1rem;
+    border-radius: 10px;
+}
+.text-area-buttons-div{
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    width: 100%;
+    gap: 20rem;
+    align-items: center;
+}
+.text-area-buttons{
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+}
+.text-area-buttons button{
+    border: none;
+    padding: 0.5rem 2rem;
+    border-radius: 10px;
+
+}
+.cancel-button button{
+    background-color: black;
+}

@@ -1,6 +1,7 @@
 # agents/music_agent.py
 from langchain_groq import ChatGroq
-from langgraph.prebuilt import create_react_agent
+# from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from dotenv import load_dotenv
 from ..tools.chinook_tools import music_tools
 from ..prompts import MUSIC_AGENT_PROMPT
@@ -16,10 +17,10 @@ llm = ChatGroq(
 ).bind(tool_choice="auto")
 
 # Create music agent with tools and system prompt
-music_agent = create_react_agent(
+music_agent = create_agent(
     model=llm.bind_tools(music_tools),
     tools=music_tools,
-    prompt=SystemMessage(content=MUSIC_AGENT_PROMPT)
+    system_prompt=SystemMessage(content=MUSIC_AGENT_PROMPT)
 )
 
 

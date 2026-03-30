@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from database import SessionLocal, Base, engine
 from models import Product, Feedback, Message, ChatThread
-from routes import user, assistant
+from routes import user, assistant, assistant_ws
 from fastapi.middleware.cors import CORSMiddleware
 from multiAgents.router import router as agents_router
 

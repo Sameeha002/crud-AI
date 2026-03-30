@@ -9,16 +9,28 @@ def get_albums_by_artist(artist: str):
         classes = get_classes()
         Artist = classes.Artist
         Album = classes.Album
+        Track = classes.Track
 
         results = (
-            session.query(Album.Title, Artist.Name)
-            .join(Artist, Album.ArtistId == Artist.ArtistId)
+           session.query(
+                Track.Name.label("track_name"),    # label fixes ambiguity
+                Artist.Name.label("artist_name"),  # label fixes ambiguity
+                Album.Title.label("album_title")   # bonus: include album
+            )
+            .select_from(Track)                        # ← explicit FROM Track
+            .join(Album, Track.AlbumId == Album.AlbumId)    # Track → Album
+            .join(Artist, Album.ArtistId == Artist.ArtistId) # Album → Artist
             .filter(Artist.Name.ilike(f"%{artist}%"))
+            .all()
         )
         if not results:
             return f"No albums found for artist: {artist}"
 
-        return [{"Album": r.Title, "Artist": r.Name} for r in results]
+        return [{
+            "Track": r.track_name,
+            "Artist": r.artist_name,
+            "Album": r.album_title
+        } for r in results]
     finally:
         session.close()
 
@@ -34,16 +46,21 @@ def get_tracks_by_artist(artist: str):
         Track = classes.Track
 
         results  = (
-            session.query(Track.Name, Artist.Name)
-            .join(Artist, Album.ArtistId == Artist.ArtistId )
-            .join(Track, Track.AlbumId == Album.AlbumId )
-            .filter(Artist.Name.ilike(f"%{artist}%"))
-            .all()
+                session.query(
+                    Track.Name.label("track_name"),
+                    Artist.Name.label("artist_name"),
+                    Album.Title.label("album_title")
+                )
+                .select_from(Track)
+                .join(Album, Track.AlbumId == Album.AlbumId)
+                .join(Artist, Album.ArtistId == Artist.ArtistId)
+                .filter(Artist.Name.ilike(f"%{artist}%"))
+                .all()
         )
         if not results:
             return f"No tracks found for artist: {artist}"
 
-        return [{"Track": r[0], "Artist": r[1]} for r in results]
+        return [{"Track": r.track_name, "Artist": r.artist_name, "Album": r.album_title} for r in results]
     finally:
         session.close()
 
@@ -60,7 +77,7 @@ def get_tracks_by_genre(genre: str):
         Artist = classes.Artist
 
         results = (
-            session.query(Track.Name, Artist.Name, Genre.Name)
+            session.query(Track.Name.Label("track_name"), Artist.Name.Label("artist_name"), Genre.Name.Label("genre_name"))
             .join(Album, Track.AlbumId == Album.AlbumId)
             .join(Artist, Album.ArtistId == Artist.ArtistId)
             .join(Genre, Track.GenreId == Genre.GenreId)
@@ -88,7 +105,7 @@ def check_for_songs(song_title: str):
         Artist = classes.Artist
 
         results = (
-            session.query(Track.Name, Artist.Name, Album.Title)
+            session.query(Track.Name.Label("track_name"), Artist.Name.Label("artist_name"), Album.Title.Label("album_title"))
             .join(Album, Track.AlbumId == Album.AlbumId)
             .join(Artist, Album.ArtistId == Artist.ArtistId)
             .filter(Track.Name.ilike(f"%{song_title}%"))

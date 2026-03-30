@@ -5,7 +5,7 @@ from ..agents.supervisor import run_supervisor
 from ..agents.music_agent import run_music_agent
 from ..agents.sales_agent import run_sales_agent
 
-def route_to_agent(state: dict):
+def route_after_supervisor(state: dict):
     """
     Reads next_agent from state and returns which node to go to.
     Called by add_conditional_edges after supervisor runs.
@@ -23,15 +23,16 @@ builder.add_edge(START, "supervisor")
 
 builder.add_conditional_edges(
     "supervisor",
-    route_to_agent,
+    route_after_supervisor,
     {
         "music_agent": "music_agent",
-        "sales_agent": "sales_agent"
+        "sales_agent": "sales_agent",
+        "FINISH": END
     }
 )
 
-builder.add_edge("music_agent", END)
-builder.add_edge("sales_agent", END)
+builder.add_edge("music_agent", "supervisor")
+builder.add_edge("sales_agent", "supervisor")
 
 graph = builder.compile(checkpointer=checkpointer)
 
