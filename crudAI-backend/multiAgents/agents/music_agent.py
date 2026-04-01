@@ -30,4 +30,5 @@ def run_music_agent(state: dict):
     Receives state, runs agent, returns updated messages.
     """
     result = music_agent.invoke(state)
-    return {"messages": result["messages"]}
+    completed = state.get("completed_agents", [])
+    return {"messages": result["messages"], "completed_agents": completed + ["music_agent"]}

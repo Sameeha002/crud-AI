@@ -1,0 +1,26 @@
+Policy Name: Flexible Hybrid Work & "Focus Friday" Policy
+Policy ID: HR-2026-05
+Effective Date: April 1, 2026
+Version: 1.2
+1. Purpose
+[Company Name] aims to foster a productive, balanced work environment that supports employee wellbeing while ensuring operational excellence. This policy outlines guidelines for our hybrid work model and the implementation of "Focus Fridays" to reduce meeting fatigue.
+2. Scope
+This policy applies to all full-time and part-time employees whose job functions can be performed remotely.
+3. Hybrid Structure (3/2 Model)
+Office Days: Employees are encouraged to work from the office at least two (2) days per week to support collaboration and team culture.
+Remote Days: Employees may work remotely up to three (3) days per week.
+Core Hours: Regardless of location, all employees are expected to be available for collaborative work between 10:00 AM and 3:00 PM EST.
+4. "Focus Fridays"
+To allow for uninterrupted deep work and project completion, [Company Name] implements "Focus Fridays."
+No-Meeting Zone: No internal meetings should be scheduled on Fridays.
+Exceptions: Urgent client meetings or unexpected emergencies.
+Communication: Internal chat (Slack/Teams) status should be set to "Focus Mode" on Fridays.
+5. Remote Work Requirements
+Employees working remotely must ensure:
+A secure, confidential, and professional working environment.
+Reliable high-speed internet connectivity.
+Adherence to all company IT security protocols, including the use of company-provided VPN.
+6. Compensation and Benefits
+Hybrid work arrangements do not change employee salary, benefits, or work responsibility requirements.
+7. Policy Acknowledgment
+By signing below, I acknowledge that I have read, understood, and agree to abide by this policy.

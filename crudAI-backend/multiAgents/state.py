@@ -22,3 +22,5 @@ class State(TypedDict):
     # Counter to prevent infinite recursion in agent workflow
     remaining_steps: RemainingSteps 
     next_agent: str
+    completed_agents: list
+    customer_id: str

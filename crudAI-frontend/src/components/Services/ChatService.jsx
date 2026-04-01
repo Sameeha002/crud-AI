@@ -190,20 +190,7 @@ export const sendEditMessageStream = async (
         }
 
         if (parsed.type === "message_id") {
-          onChunk({
-            type: "message_id",
-            message_id: parsed.message_id,
-          });
-          if (parsed.type === "regenerate") {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === parsed.messageId
-                  ? { ...m, content: parsed.content, isRegenerating: false }
-                  : m,
-              ),
-            );
-          }
-          // message_id is the last event — streaming is done
+          onChunk({ type: "message_id", message_id: parsed.message_id });
           ws.close();
           onComplete();
           resolve();
@@ -309,20 +296,7 @@ export const sendRegenerateStream = async (
         }
 
         if (parsed.type === "message_id") {
-          onChunk({
-            type: "message_id",
-            message_id: parsed.message_id,
-          });
-          if (parsed.type === "regenerate") {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === parsed.messageId
-                  ? { ...m, content: parsed.content, isRegenerating: false }
-                  : m,
-              ),
-            );
-          }
-          // message_id is the last event — streaming is done
+          onChunk({ type: "message_id", message_id: parsed.message_id });
           ws.close();
           onComplete();
           resolve();
@@ -357,8 +331,8 @@ export const sendRegenerateStream = async (
 export const sendAgentMessage = async (user_id, thread_id, input) => {
   const response = await axios.post(`${API_URL}/api/v1/agents/run`, {
     user_id,
-    thread_id: thread_id ? Number(thread_id):0,
+    thread_id: thread_id ? Number(thread_id) : 0,
     input,
   });
-  return response.data
+  return response.data;
 };

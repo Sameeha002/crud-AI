@@ -4,6 +4,7 @@ from ..memory import checkpointer
 from ..agents.supervisor import run_supervisor
 from ..agents.music_agent import run_music_agent
 from ..agents.sales_agent import run_sales_agent
+from .summarizer import run_summarizer
 
 def route_after_supervisor(state: dict):
     """
@@ -18,6 +19,7 @@ builder = StateGraph(State)
 builder.add_node("supervisor", run_supervisor)
 builder.add_node("music_agent", run_music_agent)
 builder.add_node("sales_agent", run_sales_agent)
+builder.add_node("summarizer", run_summarizer)
 
 builder.add_edge(START, "supervisor")
 
@@ -27,12 +29,14 @@ builder.add_conditional_edges(
     {
         "music_agent": "music_agent",
         "sales_agent": "sales_agent",
-        "FINISH": END
+        "FINISH": "summarizer"
     }
 )
 
 builder.add_edge("music_agent", "supervisor")
 builder.add_edge("sales_agent", "supervisor")
+builder.add_edge("summarizer", END)
 
 graph = builder.compile(checkpointer=checkpointer)
+
 

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from .graph.multi_agent_graph import graph
 from langchain_core.messages import HumanMessage as HumanMsg
+from .tools.chinook_db import get_session, get_classes
 import json
 
 router = APIRouter(prefix="/api/v1/agents", tags=["MultiAgents"])
@@ -15,6 +16,19 @@ class AgentRequest(BaseModel):
     thread_id: int
     input: str 
 
+def get_chinook_customer_id(email: str) -> str | None:
+    """Look up Chinook CustomerId by email."""
+    session = get_session()
+    try:
+        classes = get_classes()
+        Customer = classes.Customer
+        result = session.query(Customer.CustomerId).filter(
+            Customer.Email == email
+        ).first()
+        return str(result.CustomerId) if result else None
+    finally:
+        session.close()
+
 @router.post("/run")
 async def run_agent(payload: AgentRequest, db: Session = Depends(get_db)):
 
@@ -22,6 +36,9 @@ async def run_agent(payload: AgentRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    customer_id = get_chinook_customer_id(user.email)
+    if not customer_id:
+        raise HTTPException(status_code=404, detail="No Chinook account found for this user")
     # create a new thread_id if thread_id is 0
     thread_id = payload.thread_id
     if thread_id == 0:
@@ -57,7 +74,9 @@ async def run_agent(payload: AgentRequest, db: Session = Depends(get_db)):
     
     result = await graph.ainvoke({
         "messages": [HumanMessage(content=payload.input)],
-        "loaded_memory": ""
+        "loaded_memory": "",
+        "customer_id": customer_id,  
+        "completed_agents": []
     }, config=config)
 
     tool_calls = []
@@ -65,13 +84,17 @@ async def run_agent(payload: AgentRequest, db: Session = Depends(get_db)):
     final_response = []
 
     messages = result["messages"]
+    for i, msg in enumerate(messages):
+     print(f"[{i}] TYPE: {msg.type} | CONTENT: {repr(msg.content)[:150]}")
+
+
+
     last_human_idx = max(
         (i for i, m in enumerate(messages)if isinstance(m, HumanMsg)),
         default=0
     )
     routed_to = None
     for msg in messages[last_human_idx + 1:]:
-        
         if isinstance(msg, tuple):
             continue
         print(f"MSG TYPE: {msg.type}, CONTENT: {repr(msg.content)[:200]}")

@@ -3,7 +3,7 @@ from langchain_groq import ChatGroq
 # from langgraph.prebuilt import create_react_agent
 from langchain.agents import create_agent
 from dotenv import load_dotenv
-from ..tools.chinook_tools import music_tools, sales_tool
+from ..tools.chinook_tools import sales_tool
 from ..prompts import SALES_AGENT_PROMPT
 import os
 from langchain_core.messages import SystemMessage
@@ -31,5 +31,18 @@ def run_sales_agent(state: dict):
     Entry point for sales agent — called by LangGraph supervisor.
     Receives state, runs agent, returns updated messages.
     """
-    result = sales_agent.invoke(state)
-    return {"messages": result["messages"]}
+    customer_id = state.get("customer_id")
+    injected = SystemMessage(content=f"The current customer's ID is {customer_id}. Use this for all tool calls.")
+
+    modified_state = {
+        **state,
+        "messages": [injected] + list(state["messages"])
+    }
+
+    result = sales_agent.invoke(modified_state)
+    completed = state.get("completed_agents", [])
+    return {
+        "messages": result["messages"],
+        "completed_agents": completed + ["sales_agent"]
+        
+        }

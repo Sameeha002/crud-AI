@@ -368,80 +368,84 @@ const Main = ({
     );
   };
 
-  const handleRegenerate = async (msg) => {
-    // Clear the existing message and mark regenerating
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.message_id === msg.message_id
-          ? { ...m, content: "", isRegenerating: true }
-          : m,
-      ),
-    );
+ const handleRegenerate = async (msg, msgIndex) => {
+  // Track which index we're regenerating so we can replace it precisely
+  const regeneratingIndex = msgIndex;
 
-    setIsLoading(true);
-    streamingMessageRef.current = "";
-    toolCallsRef.current = [];
-    toolResultsRef.current = [];
-    messageIdRef.current = null;
+  // Clear the message content and mark it as regenerating
+  setMessages((prev) =>
+    prev.map((m, i) =>
+      i === regeneratingIndex ? { ...m, content: "", isRegenerating: true } : m
+    )
+  );
 
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+  setIsLoading(true);
+  setStreamingMessage("");
+  streamingMessageRef.current = "";
+  toolCallsRef.current = [];
+  toolResultsRef.current = [];
+  messageIdRef.current = null;
 
-    await sendRegenerateStream(
-      activeThread,
-      msg.message_id,
-      (parsed) => {
-        if (parsed.type === "tool_call") {
-          toolCallsRef.current = [...toolCallsRef.current, parsed];
-          setToolCalls([...toolCallsRef.current]);
-          return;
-        }
-        if (parsed.type === "tool_result") {
-          toolResultsRef.current = [...toolResultsRef.current, parsed];
-          setToolResults([...toolResultsRef.current]);
-          return;
-        }
-        if (parsed.type === "message_id") {
-          messageIdRef.current = parsed.message_id;
-          return;
-        }
-        if (parsed.type === "text") {
-          streamingMessageRef.current += parsed.content;
-          setStreamingMessage(streamingMessageRef.current);
-        }
-      },
-      () => {
-        // onComplete — replace the message in state
-        const structuredContent = [
-          ...toolCallsRef.current,
-          ...toolResultsRef.current,
-          { type: "text", content: streamingMessageRef.current },
-        ];
-        setStreamingMessage("");
-        setToolCalls([]);
-        setToolResults([]);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.message_id === msg.message_id
-              ? {
-                  ...m,
-                  content: JSON.stringify(structuredContent),
-                  isRegenerating: false,
-                }
-              : m,
-          ),
-        );
-        setStreamingMessage("");
-        setIsLoading(false);
-        streamingMessageRef.current = "";
-      },
-      (err) => {
-        console.error(err);
-        setIsLoading(false);
-      },
-      abortController.signal,
-    );
-  };
+  const abortController = new AbortController();
+  abortControllerRef.current = abortController;
+
+  await sendRegenerateStream(
+    activeThread,
+    msg.message_id,
+    (parsed) => {
+      if (parsed.type === "tool_call") {
+        toolCallsRef.current = [...toolCallsRef.current, parsed];
+        setToolCalls([...toolCallsRef.current]);
+        return;
+      }
+      if (parsed.type === "tool_result") {
+        toolResultsRef.current = [...toolResultsRef.current, parsed];
+        setToolResults([...toolResultsRef.current]);
+        return;
+      }
+      if (parsed.type === "message_id") {
+        messageIdRef.current = parsed.message_id;
+        return;
+      }
+      if (parsed.type === "text") {
+        streamingMessageRef.current += parsed.content;
+        setStreamingMessage(streamingMessageRef.current);
+      }
+    },
+    () => {
+      // onComplete — replace by index, not by message_id
+      const structuredContent = [
+        ...toolCallsRef.current,
+        ...toolResultsRef.current,
+        { type: "text", content: streamingMessageRef.current },
+      ];
+      setStreamingMessage("");
+      setToolCalls([]);
+      setToolResults([]);
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === regeneratingIndex
+            ? {
+                ...m,
+                content: JSON.stringify(structuredContent),
+                message_id: messageIdRef.current ?? m.message_id, // update to new message_id if server issued one
+                isRegenerating: false,
+              }
+            : m
+        )
+      );
+      setIsLoading(false);
+      streamingMessageRef.current = "";
+      toolCallsRef.current = [];
+      toolResultsRef.current = [];
+    },
+    (err) => {
+      console.error(err);
+      setIsLoading(false);
+    },
+    abortController.signal
+  );
+};
 
   return (
     <div className={`main-container ${sidebarOpen ? "shifted" : ""}`}>
@@ -561,7 +565,7 @@ const Main = ({
                           <div>
                             <CiRedo
                               className="regenerate-button"
-                              onClick={() => handleRegenerate(msg)}
+                              onClick={() => handleRegenerate(msg, index)}
                             />
                           </div>
                           {parsedContent.some(

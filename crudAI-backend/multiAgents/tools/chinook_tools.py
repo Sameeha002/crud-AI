@@ -77,7 +77,7 @@ def get_tracks_by_genre(genre: str):
         Artist = classes.Artist
 
         results = (
-            session.query(Track.Name.Label("track_name"), Artist.Name.Label("artist_name"), Genre.Name.Label("genre_name"))
+            session.query(Track.Name.label("track_name"), Artist.Name.label("artist_name"), Genre.Name.label("genre_name"))
             .join(Album, Track.AlbumId == Album.AlbumId)
             .join(Artist, Album.ArtistId == Artist.ArtistId)
             .join(Genre, Track.GenreId == Genre.GenreId)
@@ -105,7 +105,7 @@ def check_for_songs(song_title: str):
         Artist = classes.Artist
 
         results = (
-            session.query(Track.Name.Label("track_name"), Artist.Name.Label("artist_name"), Album.Title.Label("album_title"))
+            session.query(Track.Name.label("track_name"), Artist.Name.label("artist_name"), Album.Title.label("album_title"))
             .join(Album, Track.AlbumId == Album.AlbumId)
             .join(Artist, Album.ArtistId == Artist.ArtistId)
             .filter(Track.Name.ilike(f"%{song_title}%"))
