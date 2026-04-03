@@ -428,7 +428,13 @@ dependencies = [
     { name = "langsmith" },
     { name = "llama-index" },
     { name = "llama-index-embeddings-gemini" },
+    { name = "llama-index-embeddings-google-genai" },
+    { name = "llama-index-embeddings-huggingface" },
     { name = "llama-index-llms-gemini" },
+    { name = "llama-index-llms-google-genai" },
+    { name = "llama-index-llms-huggingface-api" },
+    { name = "llama-index-llms-langchain" },
+    { name = "llama-index-llms-openai-like" },
     { name = "llama-index-vector-stores-chroma" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -451,7 +457,13 @@ requires-dist = [
     { name = "langsmith", specifier = ">=0.7.16" },
     { name = "llama-index", specifier = ">=0.14.19" },
     { name = "llama-index-embeddings-gemini", specifier = ">=0.4.2" },
+    { name = "llama-index-embeddings-google-genai", specifier = ">=0.5.0" },
+    { name = "llama-index-embeddings-huggingface", specifier = ">=0.7.0" },
     { name = "llama-index-llms-gemini", specifier = ">=0.6.2" },
+    { name = "llama-index-llms-google-genai", specifier = ">=0.9.1" },
+    { name = "llama-index-llms-huggingface-api", specifier = ">=0.7.0" },
+    { name = "llama-index-llms-langchain", specifier = ">=0.8.0" },
+    { name = "llama-index-llms-openai-like", specifier = ">=0.7.1" },
     { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
@@ -823,6 +835,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/eb/c6c2478d8a8d633460be40e2a8a6f8f429171997a35a96f81d3b680dec83/google_auth-2.49.1-py3-none-any.whl", hash = "sha256:195ebe3dca18eddd1b3db5edc5189b76c13e96f29e73043b923ebcf3f1a860f7", size = 240737, upload-time = "2026-03-12T19:30:53.159Z" },
 ]
 
+[package.optional-dependencies]
+requests = [
+    { name = "requests" },
+]
+
 [[package]]
 name = "google-auth-httplib2"
 version = "0.3.1"
@@ -834,6 +851,27 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ed/99/107612bef8d24b298bb5a7c8466f908ecda791d43f9466f5c3978f5b24c1/google_auth_httplib2-0.3.1.tar.gz", hash = "sha256:0af542e815784cb64159b4469aa5d71dd41069ba93effa006e1916b1dcd88e55", size = 11152, upload-time = "2026-03-30T22:50:26.766Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/e9/93afb14d23a949acaa3f4e7cc51a0024671174e116e35f42850764b99634/google_auth_httplib2-0.3.1-py3-none-any.whl", hash = "sha256:682356a90ef4ba3d06548c37e9112eea6fc00395a11b0303a644c1a86abc275c", size = 9534, upload-time = "2026-03-30T22:49:03.384Z" },
+]
+
+[[package]]
+name = "google-genai"
+version = "1.70.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "google-auth", extra = ["requests"] },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "sniffio" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/dd/28e4682904b183acbfad3fe6409f13a42f69bb8eab6e882d3bcbea1dde01/google_genai-1.70.0.tar.gz", hash = "sha256:36b67b0fc6f319e08d1f1efd808b790107b1809c8743a05d55dfcf9d9fad7719", size = 519550, upload-time = "2026-04-01T10:52:46.487Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/a3/d4564c8a9beaf6a3cef8d70fa6354318572cebfee65db4f01af0d41f45ba/google_genai-1.70.0-py3-none-any.whl", hash = "sha256:b74c24549d8b4208f4c736fd11857374788e1ffffc725de45d706e35c97fceee", size = 760584, upload-time = "2026-04-01T10:52:44.349Z" },
 ]
 
 [[package]]
@@ -1557,6 +1595,33 @@ wheels = [
 ]
 
 [[package]]
+name = "llama-index-embeddings-google-genai"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-genai" },
+    { name = "llama-index-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4b/e6/17f94417627d12cc1a6b103f14ee926b52d86566fc81947bef903126cda6/llama_index_embeddings_google_genai-0.5.0.tar.gz", hash = "sha256:051d7ca0a95e3bc1d0f32f5cc167cca119ce42bc4a516c8117934c589c93b19f", size = 5950, upload-time = "2026-03-12T20:19:35.483Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/96/520691db2af5f606cf2d6f38aaafb29a416b4bc4cc09219c6b55369ead31/llama_index_embeddings_google_genai-0.5.0-py3-none-any.whl", hash = "sha256:25a32ec995785e5e903c08561252bb107fc3f41b79691eb8fabb6a8e09ca238f", size = 5720, upload-time = "2026-03-12T20:19:34.731Z" },
+]
+
+[[package]]
+name = "llama-index-embeddings-huggingface"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "llama-index-core" },
+    { name = "sentence-transformers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a1/b3/faa44f7c9edaaefb6f7e1d8a306433c4ccc5ea5bde92302bec149e62b838/llama_index_embeddings_huggingface-0.7.0.tar.gz", hash = "sha256:da8a2a65df9404112c4430dfada09d4f846ba165197a25dbe77f734014c56a87", size = 8692, upload-time = "2026-03-12T20:20:31.588Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/25/86/dc43deab70f19db4fcdd82337e18b7f5b828478c486d6308cea10def87c5/llama_index_embeddings_huggingface-0.7.0-py3-none-any.whl", hash = "sha256:cae7e4ffddc1fecb34b83425a00679f338ce03ad0a7f3aca6b927136d6af7131", size = 8904, upload-time = "2026-03-12T20:20:32.449Z" },
+]
+
+[[package]]
 name = "llama-index-embeddings-openai"
 version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1597,6 +1662,46 @@ wheels = [
 ]
 
 [[package]]
+name = "llama-index-llms-google-genai"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-genai" },
+    { name = "llama-index-core" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bd/5d/302b3b78bae87eaf7cceaed774e8d8c91cdc6491b429dda730dee4842d0d/llama_index_llms_google_genai-0.9.1.tar.gz", hash = "sha256:34607f478091befeda2d654d319243cbfb2162980202bc3af691c83b198262cf", size = 13744, upload-time = "2026-03-25T02:30:00.604Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/82/7723979fb1398f0c10174d95962442abee9f6e65d2aeab8bb193aced2847/llama_index_llms_google_genai-0.9.1-py3-none-any.whl", hash = "sha256:8284239b2839e97482e136f7ddba96bdc1100e737490fd5c134cc27802da8c0d", size = 14234, upload-time = "2026-03-25T02:29:59.648Z" },
+]
+
+[[package]]
+name = "llama-index-llms-huggingface-api"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "llama-index-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/80/39/43209dc7ca4de97b4dc6fdd4a5e8148b1212b2cb5d55177213625f259428/llama_index_llms_huggingface_api-0.7.0.tar.gz", hash = "sha256:deafb0bf50a5995c2c85e986f1e17c292208aceb8ad860607822636ce2b89d8f", size = 7730, upload-time = "2026-03-12T20:24:59.75Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/77/10d8f2e51caea22b58e123ebf1bd5f4961d38d6cff0a5c03916ecc412a43/llama_index_llms_huggingface_api-0.7.0-py3-none-any.whl", hash = "sha256:c1797abe45699fe48b73ca0417ffec04d0055a9809f3e8c670983e8c874b243f", size = 7482, upload-time = "2026-03-12T20:25:00.34Z" },
+]
+
+[[package]]
+name = "llama-index-llms-langchain"
+version = "0.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain" },
+    { name = "llama-index-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/59/73ebaeafff73af902b821150fd4693515095bf0587fd9491dec91328253c/llama_index_llms_langchain-0.8.0.tar.gz", hash = "sha256:3642cb7ae840fdf6d440002df2d34064520b8ca030f26409610dd43fd435a450", size = 6064, upload-time = "2026-03-12T20:25:10.64Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/34/d6579b5a3535d02276a3e5bff976fb586592076a6d9ab718baa15af0ecc1/llama_index_llms_langchain-0.8.0-py3-none-any.whl", hash = "sha256:a36d09193a720689143e91f0875e9ece81975d653b4d2036a00b34688b82b702", size = 6113, upload-time = "2026-03-12T20:25:11.216Z" },
+]
+
+[[package]]
 name = "llama-index-llms-openai"
 version = "0.7.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1607,6 +1712,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/65/27/18a7fd0873023aed145332dab5a09b95b298e4fff1c21685eaf22b629d87/llama_index_llms_openai-0.7.5.tar.gz", hash = "sha256:54123e679a7cddc1f2e969f278a4654050730daf84691731a0c53ae14feac3c7", size = 27423, upload-time = "2026-03-30T16:30:33.973Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/62/a847e9a94c2f92926c30188259f9f86e019dcc45122bbb222dea35a74c02/llama_index_llms_openai-0.7.5-py3-none-any.whl", hash = "sha256:c302c6386873420df3714c3d538f45379b6de27ab6a531f30c67419b39a538f5", size = 28492, upload-time = "2026-03-30T16:30:32.979Z" },
+]
+
+[[package]]
+name = "llama-index-llms-openai-like"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "llama-index-core" },
+    { name = "llama-index-llms-openai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/9f/0d98d022a08f43d4374998072636ec50a7cb50009bbb9a2761f5b26a78cc/llama_index_llms_openai_like-0.7.1.tar.gz", hash = "sha256:ce7cef3686b1e62d7c08134b4d8ca56706cca816e4c4098eaede33002829a6f9", size = 5177, upload-time = "2026-03-13T16:15:58.156Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/22/a1e1ec1112c69ca0a379cd72691c36cdbcba78362622ce9a27e5a97965cc/llama_index_llms_openai_like-0.7.1-py3-none-any.whl", hash = "sha256:831f1144077c6f9ea7a62e987b7f2af00310dded3056edca2cb509f70a3e650a", size = 4860, upload-time = "2026-03-13T16:15:59.113Z" },
 ]
 
 [[package]]
