@@ -29,4 +29,5 @@ dependencies = [
     "llama-index-llms-huggingface-api>=0.7.0",
     "llama-index-embeddings-huggingface>=0.7.0",
     "llama-index-llms-langchain>=0.8.0",
+    "psycopg2-binary>=2.9.12",
 ]
