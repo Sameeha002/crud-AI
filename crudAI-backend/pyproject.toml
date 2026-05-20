@@ -30,4 +30,5 @@ dependencies = [
     "llama-index-embeddings-huggingface>=0.7.0",
     "llama-index-llms-langchain>=0.8.0",
     "psycopg2-binary>=2.9.12",
+    "tavily>=1.1.0",
 ]
