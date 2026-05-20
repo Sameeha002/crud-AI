@@ -434,7 +434,6 @@ dependencies = [
     { name = "llama-index-llms-google-genai" },
     { name = "llama-index-llms-huggingface-api" },
     { name = "llama-index-llms-langchain" },
-    { name = "llama-index-llms-openai-like" },
     { name = "llama-index-vector-stores-chroma" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -463,7 +462,6 @@ requires-dist = [
     { name = "llama-index-llms-google-genai", specifier = ">=0.9.1" },
     { name = "llama-index-llms-huggingface-api", specifier = ">=0.7.0" },
     { name = "llama-index-llms-langchain", specifier = ">=0.8.0" },
-    { name = "llama-index-llms-openai-like", specifier = ">=0.7.1" },
     { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
@@ -1712,19 +1710,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/65/27/18a7fd0873023aed145332dab5a09b95b298e4fff1c21685eaf22b629d87/llama_index_llms_openai-0.7.5.tar.gz", hash = "sha256:54123e679a7cddc1f2e969f278a4654050730daf84691731a0c53ae14feac3c7", size = 27423, upload-time = "2026-03-30T16:30:33.973Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/62/a847e9a94c2f92926c30188259f9f86e019dcc45122bbb222dea35a74c02/llama_index_llms_openai-0.7.5-py3-none-any.whl", hash = "sha256:c302c6386873420df3714c3d538f45379b6de27ab6a531f30c67419b39a538f5", size = 28492, upload-time = "2026-03-30T16:30:32.979Z" },
-]
-
-[[package]]
-name = "llama-index-llms-openai-like"
-version = "0.7.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "llama-index-core" },
-    { name = "llama-index-llms-openai" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/9f/0d98d022a08f43d4374998072636ec50a7cb50009bbb9a2761f5b26a78cc/llama_index_llms_openai_like-0.7.1.tar.gz", hash = "sha256:ce7cef3686b1e62d7c08134b4d8ca56706cca816e4c4098eaede33002829a6f9", size = 5177, upload-time = "2026-03-13T16:15:58.156Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6d/22/a1e1ec1112c69ca0a379cd72691c36cdbcba78362622ce9a27e5a97965cc/llama_index_llms_openai_like-0.7.1-py3-none-any.whl", hash = "sha256:831f1144077c6f9ea7a62e987b7f2af00310dded3056edca2cb509f70a3e650a", size = 4860, upload-time = "2026-03-13T16:15:59.113Z" },
 ]
 
 [[package]]
