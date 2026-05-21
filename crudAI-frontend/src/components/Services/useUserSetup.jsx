@@ -11,7 +11,7 @@ export const useUserSetup = () => {
     const setupUser = async () => {
       try{
         const res = await axios.post(
-        "http://127.0.0.1:8000/users/get-or-create",
+        "https://crud-ai.onrender.com/users/get-or-create",
         // {name: "John", email: "john@gmail.com"});
         {name: "Rem", email: "ftremblay@gmail.com"});
 

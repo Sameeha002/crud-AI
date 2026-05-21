@@ -23,7 +23,7 @@ function App() {
   const handleChatClick = async (thread_id) => {
     try {
       const res = await axios.get(
-        `http://127.0.0.1:8000/users/chats/${thread_id}/messages`,
+        `https://crud-ai.onrender.com/users/chats/${thread_id}/messages`,
       );
       setActiveThread(thread_id);
       const mapped = res.data.map((msg) => ({

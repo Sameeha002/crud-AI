@@ -1,7 +1,84 @@
 import axios from "axios";
 
-const WS_URL = "ws://127.0.0.1:8000/ws/chat";
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://crud-ai.onrender.com";
+
+const parseSSEChunks = async (reader, onChunk, onComplete, onError, onThreadId, signal) => {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        onComplete();
+        break;
+      }
+
+      const { done, value } = await reader.read();
+      if (done) {
+        onComplete();
+        break;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop(); // keep incomplete line in buffer
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+        const jsonStr = trimmed.slice(5).trim();
+        if (!jsonStr) continue;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+
+          if (parsed.type === "thread_id") {
+            if (onThreadId && parsed.thread_id) {
+              onThreadId(parsed.thread_id);
+            }
+            continue;
+          }
+
+          if (parsed.type === "tool_call") {
+            onChunk({ type: "tool_call", tool: parsed.tool, display_name: parsed.display_name || parsed.tool });
+            continue;
+          }
+
+          if (parsed.type === "tool_result") {
+            onChunk({ type: "tool_result", tool: parsed.tool, content: parsed.content });
+            continue;
+          }
+
+          if (parsed.type === "text") {
+            onChunk({ type: "text", content: parsed.content });
+            continue;
+          }
+
+          if (parsed.type === "message_id") {
+            onChunk({ type: "message_id", message_id: parsed.message_id });
+            onComplete();
+            return;
+          }
+
+          if (parsed.type === "error") {
+            onError(new Error(parsed.message));
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to parse SSE line:", line, err);
+        }
+      }
+    }
+  } catch (err) {
+    if (signal?.aborted) {
+      onComplete();
+    } else {
+      console.error("Stream reading error:", err);
+      onError(err);
+    }
+  }
+};
 
 export const sendMessageStream = async (
   thread_id,
@@ -13,105 +90,32 @@ export const sendMessageStream = async (
   onThreadId,
   signal,
 ) => {
-  // Use thread_id if exists, otherwise 0 to create new thread
-  const threadId = thread_id || 0;
-
-  return new Promise((resolve) => {
-    const ws = new WebSocket(`${WS_URL}/${threadId}`);
-
-    // Abort support — close WebSocket if signal fires
-    signal?.addEventListener("abort", () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "stop" }));
-      }
-      onComplete();
-      resolve();
+  try {
+    const response = await fetch(`${API_URL}/assistant/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: thread_id || null,
+        content,
+        user_id: userId,
+      }),
+      signal,
     });
 
-    ws.onopen = () => {
-      console.log("WebSocket connected!");
-      ws.send(
-        JSON.stringify({
-          content: content,
-          user_id: userId,
-        }),
-      );
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
 
-    ws.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        console.log("Received:", parsed);
-
-        if (parsed.type === "thread_id") {
-          console.log("New thread created:", parsed.thread_id);
-          if (onThreadId && parsed.thread_id) {
-            onThreadId(parsed.thread_id);
-          }
-          return;
-        }
-
-        if (parsed.type === "tool_call") {
-          onChunk({
-            type: "tool_call",
-            tool: parsed.tool,
-            display_name: parsed.tool,
-          });
-          return;
-        }
-
-        if (parsed.type === "tool_result") {
-          onChunk({
-            type: "tool_result",
-            tool: parsed.tool,
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "text") {
-          onChunk({
-            type: "text",
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "message_id") {
-          onChunk({
-            type: "message_id",
-            message_id: parsed.message_id,
-          });
-          // message_id is the last event — streaming is done
-          ws.close();
-          onComplete();
-          resolve();
-          return;
-        }
-
-        if (parsed.type === "error") {
-          console.error("Server error:", parsed.message);
-          onError(new Error(parsed.message));
-          resolve();
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to parse message:", err);
-        onError(err);
-        resolve();
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      onError(new Error("WebSocket connection error"));
-      resolve();
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-    };
-  });
+    const reader = response.body.getReader();
+    await parseSSEChunks(reader, onChunk, onComplete, onError, onThreadId, signal);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      onComplete();
+    } else {
+      console.error("SSE error:", err);
+      onError(err);
+    }
+  }
 };
 
 export const sendEditMessageStream = async (
@@ -124,102 +128,33 @@ export const sendEditMessageStream = async (
   onThreadId,
   signal,
 ) => {
-  // Use thread_id if exists, otherwise 0 to create new thread
-  const threadId = thread_id || 0;
-
-  return new Promise((resolve) => {
-    const ws = new WebSocket(`${WS_URL}/${threadId}`);
-
-    // Abort support — close WebSocket if signal fires
-    signal?.addEventListener("abort", () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "stop" }));
-      }
-      onComplete();
-      resolve();
+  try {
+    const response = await fetch(`${API_URL}/assistant/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: thread_id || null,
+        content,
+        type: "edit_message",
+        from_index,
+      }),
+      signal,
     });
 
-    ws.onopen = () => {
-      console.log("WebSocket connected!");
-      ws.send(
-        JSON.stringify({
-          type: "edit_message",
-          from_index: from_index,
-          content: content,
-        }),
-      );
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
 
-    ws.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        console.log("Received:", parsed);
-
-        if (parsed.type === "thread_id") {
-          console.log("New thread created:", parsed.thread_id);
-          if (onThreadId && parsed.thread_id) {
-            onThreadId(parsed.thread_id);
-          }
-          return;
-        }
-
-        if (parsed.type === "tool_call") {
-          onChunk({
-            type: "tool_call",
-            tool: parsed.tool,
-            display_name: parsed.tool,
-          });
-          return;
-        }
-
-        if (parsed.type === "tool_result") {
-          onChunk({
-            type: "tool_result",
-            tool: parsed.tool,
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "text") {
-          onChunk({
-            type: "text",
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "message_id") {
-          onChunk({ type: "message_id", message_id: parsed.message_id });
-          ws.close();
-          onComplete();
-          resolve();
-          return;
-        }
-
-        if (parsed.type === "error") {
-          console.error("Server error:", parsed.message);
-          onError(new Error(parsed.message));
-          resolve();
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to parse message:", err);
-        onError(err);
-        resolve();
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      onError(new Error("WebSocket connection error"));
-      resolve();
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-    };
-  });
+    const reader = response.body.getReader();
+    await parseSSEChunks(reader, onChunk, onComplete, onError, onThreadId, signal);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      onComplete();
+    } else {
+      console.error("SSE error:", err);
+      onError(err);
+    }
+  }
 };
 
 export const sendRegenerateStream = async (
@@ -231,101 +166,32 @@ export const sendRegenerateStream = async (
   signal,
   onThreadId,
 ) => {
-  // Use thread_id if exists, otherwise 0 to create new thread
-  const threadId = thread_id || 0;
-
-  return new Promise((resolve) => {
-    const ws = new WebSocket(`${WS_URL}/${threadId}`);
-
-    // Abort support — close WebSocket if signal fires
-    signal?.addEventListener("abort", () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "stop" }));
-      }
-      onComplete();
-      resolve();
+  try {
+    const response = await fetch(`${API_URL}/assistant/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        thread_id: thread_id || null,
+        type: "regenerate",
+        message_id,
+      }),
+      signal,
     });
 
-    ws.onopen = () => {
-      console.log("WebSocket connected!");
-      ws.send(
-        JSON.stringify({
-          type: "regenerate",
-          message_id,
-        }),
-      );
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
 
-    ws.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        console.log("Received:", parsed);
-
-        if (parsed.type === "thread_id") {
-          console.log("New thread created:", parsed.thread_id);
-          if (onThreadId && parsed.thread_id) {
-            onThreadId(parsed.thread_id);
-          }
-          return;
-        }
-
-        if (parsed.type === "tool_call") {
-          onChunk({
-            type: "tool_call",
-            tool: parsed.tool,
-            display_name: parsed.tool,
-          });
-          return;
-        }
-
-        if (parsed.type === "tool_result") {
-          onChunk({
-            type: "tool_result",
-            tool: parsed.tool,
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "text") {
-          onChunk({
-            type: "text",
-            content: parsed.content,
-          });
-          return;
-        }
-
-        if (parsed.type === "message_id") {
-          onChunk({ type: "message_id", message_id: parsed.message_id });
-          ws.close();
-          onComplete();
-          resolve();
-          return;
-        }
-
-        if (parsed.type === "error") {
-          console.error("Server error:", parsed.message);
-          onError(new Error(parsed.message));
-          resolve();
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to parse message:", err);
-        onError(err);
-        resolve();
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-      onError(new Error("WebSocket connection error"));
-      resolve();
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket closed");
-    };
-  });
+    const reader = response.body.getReader();
+    await parseSSEChunks(reader, onChunk, onComplete, onError, onThreadId, signal);
+  } catch (err) {
+    if (err.name === "AbortError") {
+      onComplete();
+    } else {
+      console.error("SSE error:", err);
+      onError(err);
+    }
+  }
 };
 
 export const sendAgentMessage = async (user_id, thread_id, input) => {

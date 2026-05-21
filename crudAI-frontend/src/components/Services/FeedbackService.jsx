@@ -9,7 +9,7 @@ const FeedbackService = async (
 ) => {
   try {
     const res = await axios.post(
-      `http://127.0.0.1:8000/users/chats/${thread_id}/messages/${message_id}/feedback`,
+      `https://crud-ai.onrender.com/users/chats/${thread_id}/messages/${message_id}/feedback`,
       {
         feedback_type: feedbackType,
         reason: reason,

@@ -6,7 +6,7 @@ import { userChats } from "../Services/userChats";
 
 const Sidebar = ({isLoggedIn, user, handleChatClick}) => {
  
-  const API_URL = 'http://127.0.0.1:8000/products'
+  const API_URL = 'https://crud-ai.onrender.com/products'
 
   const [products, setProducts] = useState([])
   const [chats, setChats] = useState([])
@@ -43,7 +43,7 @@ const Sidebar = ({isLoggedIn, user, handleChatClick}) => {
     try {
       const userId = localStorage.getItem('user_id')
       const res = await axios.post(
-        "http://127.0.0.1:8000/users/create-chat",
+        "https://crud-ai.onrender.com/users/create-chat",
         {
           user_id: userId,
           title: 'New Chat'
