@@ -8,7 +8,7 @@ from multiAgents.router import router as agents_router
 app = FastAPI(title="CRUD with AI")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://crud-ai-pi.vercel.app/"],
+    allow_origins=["http://localhost:5173", "https://crud-ai-pi.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
